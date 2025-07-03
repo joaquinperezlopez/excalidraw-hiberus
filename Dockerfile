@@ -1,24 +1,27 @@
-# --- Etapa 1: Construir frontend
-FROM node:20-alpine as frontend
-WORKDIR /app
-COPY ./excalidraw ./excalidraw
-WORKDIR /app/excalidraw
-RUN yarn install && yarn build
+# --- Etapa 1: Construir el frontend (React)
+FROM node:18 AS frontend
+WORKDIR /home/node/app
+COPY . .
+RUN npm install
+RUN cd excalidraw-app && npm run build:app:docker
 
-# --- Etapa 2: backend
-FROM golang:1.21-alpine as backend
+# --- Etapa 2: Compilar el backend (Go)
+FROM golang:alpine AS backend
+RUN apk update && apk add --no-cache git
 WORKDIR /app
 COPY go.mod ./
-RUN go mod download
+RUN GOPROXY=direct go mod download
 COPY . .
-# Copiar el frontend generado
-COPY --from=frontend /app/excalidraw/build ./static
-RUN go build -o server .
 
-# --- Etapa final
+# Copiar el frontend generado al backend
+COPY --from=frontend /home/node/app/excalidraw-app/build ./frontend
+
+RUN GOPROXY=direct CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+
+# --- Etapa 3: Imagen final para producción
 FROM alpine
 WORKDIR /root/
-COPY --from=backend /app/server .
-COPY --from=backend /app/static ./static
+COPY --from=backend /app/main .
+COPY --from=backend /app/frontend ./frontend
 EXPOSE 8080
-CMD ["./server", "--listen=0.0.0.0:8080"]
+CMD ["./main", "--listen=0.0.0.0:8080"]
