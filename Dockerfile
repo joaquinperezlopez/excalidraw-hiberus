@@ -1,9 +1,12 @@
 # --- Etapa 1: Construir el frontend (React)
+# --- Etapa 1: Construir el frontend (React)
 FROM node:18 AS frontend
 WORKDIR /home/node/app
-COPY . .
+COPY ./excalidraw-app ./excalidraw-app
+WORKDIR /home/node/app/excalidraw-app
 RUN npm install
-RUN cd excalidraw-app && npm run build:app:docker
+RUN npm run build:app:docker
+
 
 # --- Etapa 2: Compilar el backend (Go)
 FROM golang:alpine AS backend
